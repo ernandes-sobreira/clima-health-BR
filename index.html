@@ -957,6 +957,25 @@ function rrAt(curve, pm){
 /* ============================================================
    STATE
    ============================================================ */
+
+/* Pre-loaded municipalities (Mato Grosso / Pantanal).
+   Mortality rates are per 100,000 inhabitants, converted from absolute
+   DATASUS/SIM deaths ÷ IBGE population. Each entry MUST be filled from real
+   DATASUS exports before use. The entry below is a PLACEHOLDER clearly marked
+   so it is never mistaken for validated data.
+   Fields: pop, lat, lon, year, source, and mortality rates per 100k:
+     baseAllCause (NCD+LRI 25+, FUSION), mIHD, mStroke, mLRI, mCOPD, mLC. */
+const MUNICIPIOS = {
+  // key: 'IBGE_code' -> data
+  '5102504': {
+    nome:'Cáceres', uf:'MT', pop:94861, lat:-16.0764, lon:-57.6818,
+    dataYear:null,             // <-- ano do DATASUS (null = ainda não validado)
+    source:'PLACEHOLDER — aguardando export real do DATASUS/SIM',
+    validated:false,
+    baseAllCause:null, mIHD:null, mStroke:null, mLRI:null, mCOPD:null, mLC:null
+  }
+};
+
 const S = {
   step:0,
   crf:'fusion',          // 'fusion' | 'ier'
@@ -1295,6 +1314,16 @@ function pAir(){
     <div class="card">
       <h3>Location & reference year</h3>
       <div class="sub">Search a Brazilian municipality (or any place) to anchor the assessment. The map is for context and reporting; it does not change the calculation.</div>
+      ${(()=>{ const list=Object.entries(MUNICIPIOS).filter(([,m])=>m.validated);
+        if(!list.length) return `<div class="why" style="margin:0 0 16px"><span class="tag">Municípios pré-carregados</span>
+          Em breve: municípios de MT/Pantanal com mortalidade de base já preenchida do DATASUS. Por enquanto, busque no mapa e preencha os dados de saúde manualmente ou por upload.</div>`;
+        return `<label class="fld" style="max-width:420px;margin-bottom:14px">
+          <span class="lbl">Município pré-carregado <span class="hint">preenche saúde automaticamente</span></span>
+          <select onchange="loadMunicipio(this.value)">
+            <option value="">— escolha um município —</option>
+            ${list.map(([code,m])=>`<option value="${code}">${m.nome} / ${m.uf} · dados ${m.dataYear}</option>`).join('')}
+          </select></label>`;
+      })()}
       <div class="grid two" style="max-width:720px;margin-bottom:14px">
         <label class="fld">
           <span class="lbl">Município / place <span class="hint">digite e pressione Enter</span></span>
@@ -1919,6 +1948,19 @@ function useMyLocation(){
     pos=>{ setPlace(pos.coords.latitude,pos.coords.longitude,'Minha localização'); toast('Localização detectada'); },
     ()=>toast('Não foi possível obter a localização')
   );
+}
+function loadMunicipio(code){
+  if(!code) return;
+  const m=MUNICIPIOS[code]; if(!m) return;
+  const i=S.inputs;
+  i.country='Brasil'; i.region=m.nome+', '+m.uf; i.lat=m.lat; i.lon=m.lon;
+  i.population=m.pop;
+  if(m.baseAllCause!=null) i.baseAllCause=m.baseAllCause;
+  ['mIHD','mStroke','mLRI','mCOPD','mLC'].forEach(k=>{ if(m[k]!=null) i[k]=m[k]; });
+  if(m.dataYear) { /* keep user's chosen reference year; data year shown separately */ }
+  S._muniLoaded=m;  // remember source for the report
+  toast(`${m.nome} carregado · mortalidade ${m.dataYear||'(pendente)'}`);
+  render();
 }
 function applySuggestedVSL(){
   const i=S.inputs;
