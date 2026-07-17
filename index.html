@@ -1050,7 +1050,22 @@ function downloadChart(canvasId,name){
 /* ============================================================
    ACTIONS / STATE MUTATION
    ============================================================ */
-function go(step){ S.step=step; window.scrollTo({top:0,behavior:'smooth'}); render(); }
+function go(step){
+  // If leaving the air-quality step (1) with an uploaded file whose mapping
+  // hasn't been written into inputs yet, apply it automatically. Block the
+  // move only if the required fields fail validation, with a clear message.
+  if(S.step===1 && step>1 && S.upload && !S.upload.applied){
+    const ok = writeMappingToInputs();
+    if(!ok){
+      toast('Corrija os campos destacados antes de continuar');
+      window.scrollTo({top:0,behavior:'smooth'});
+      renderMapping();          // rebuild mapping table (re-validates badges)
+      writeMappingToInputs();   // re-run to paint the error into the fresh #mapMsg
+      return;
+    }
+  }
+  S.step=step; window.scrollTo({top:0,behavior:'smooth'}); render();
+}
 function setMethod(m){ S.method=m; render(); }
 function setCRF(c){ S.crf=c; render(); }
 function setScope(s){ S.scope=s; render(); }
@@ -1143,7 +1158,7 @@ function renderMapping(){
     </div>`;
 }
 
-function setMap(field,val){ S.upload.mapping[field]= val===''?undefined:parseInt(val); renderMapping(); }
+function setMap(field,val){ S.upload.mapping[field]= val===''?undefined:parseInt(val); S.upload.applied=false; renderMapping(); }
 
 // hard validation of a single cell from row 0
 function validateCell(fd, idx){
@@ -1160,29 +1175,40 @@ function validateCell(fd, idx){
   return {ok:true,badge:`<span class="val-badge val-ok">✓ ${nf(n,n<10?2:0)}</span>`};
 }
 
-function applyMapping(){
+// Validate the current mapping and, if the required fields pass, write the
+// first data row into S.inputs. Returns true on success, false if blocked.
+function writeMappingToInputs(){
+  if(!S.upload) return true;
   const errs=[];
   FIELDS.forEach(fd=>{
     const idx=S.upload.mapping[fd.key];
     const v=validateCell(fd,idx);
     if(!v.ok) errs.push(fd.label);
   });
-  const msg=document.getElementById('mapMsg');
   if(errs.length){
-    msg.innerHTML=`<div class="why" style="background:#fce8e2;border-color:#f3b9a6;border-left-color:var(--coral);margin-top:16px">
-      <span class="tag" style="color:var(--warn)">Blocked — fix these before continuing</span>
-      ${errs.length} field${errs.length>1?'s':''} failed validation: ${errs.join(', ')}. The calculation will not run on data it can't trust.</div>`;
-    toast('Fix the flagged fields first'); return;
+    const msg=document.getElementById('mapMsg');
+    if(msg) msg.innerHTML=`<div class="why" style="background:#fce8e2;border-color:#f3b9a6;border-left-color:var(--coral);margin-top:16px">
+      <span class="tag" style="color:var(--warn)">Bloqueado — corrija antes de continuar</span>
+      ${errs.length} campo${errs.length>1?'s':''} falhou na validação: ${errs.join(', ')}. O cálculo não roda com dados que não pode confiar.</div>`;
+    return false;
   }
-  // write row 0 into inputs
   const row=S.upload.rows[0];
   FIELDS.forEach(fd=>{
     const idx=S.upload.mapping[fd.key]; if(idx==null)return;
     const raw=row[idx];
     S.inputs[fd.key]= fd.type==='text'? String(raw).trim() : parseFloat(String(raw).replace(/[, ]/g,''))||0;
   });
-  toast('Mapping applied — fields filled');
-  render();
+  S.upload.applied=true;
+  return true;
+}
+
+function applyMapping(){
+  if(writeMappingToInputs()){
+    toast('Dados aplicados — seguindo para os dados de saúde');
+    go(2);
+  } else {
+    toast('Corrija os campos destacados primeiro');
+  }
 }
 
 /* ---------- EXPORTS ---------- */
