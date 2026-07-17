@@ -259,6 +259,7 @@ function hero(){
     <div class="hero-actions">
       <button class="cta" onclick="go(1)">Start an assessment →</button>
       <button class="cta secondary" onclick="loadDemo()">Load a worked example</button>
+      <button class="cta secondary" onclick="downloadTemplate()">⬇ Baixar modelo de planilha</button>
     </div>
     <div class="hero-meta">
       <div><b>2</b>real response engines<br>FUSION · GBD2019 IER</div>
@@ -818,13 +819,14 @@ function autoMap(headers){
   const alias={
     country:['country','area','iso','name','local'],
     population:['population','pop','inhabitants','people'],
-    deltaPM:['deltapm','dpm','pm25change','pmreduction','deltapm25','changepm','concentrationchange'],
+    deltaPM:['deltapm','dpm','pm25change','pmreduction','pm25reduction','deltapm25','changepm','concentrationchange','reduction'],
+    baselinePM:['currentpm','currentexposure','baselinepm','exposure','currentpm25'],
     baseAllCause:['ncdlri','allcause','baselinemortality','mortality','ncd'],
-    mIHD:['ihd','ischemic','heart'],mStroke:['stroke','cerebro'],mLRI:['lri','alri','respinfection'],
+    mIHD:['ihddeaths','ihd','ischemic','heart'],mStroke:['strokedeaths','cerebro'],mLRI:['lrideaths','alrideaths','lri','alri','respinfection'],
     mCOPD:['copddeaths','copdmort'],mLC:['lungcancerdeaths','lcdeaths','lungcancermort'],
-    incAsthmaChild:['asthma'],incCOPD:['copdincidence','copdinc'],incAMI:['ami','myocardial','heartattack'],
+    incAsthmaChild:['asthma'],incCOPD:['copdincidence','copdinc'],incAMI:['acutemi','ami','myocardial','heartattack','infarct'],
     incStrokeM:['strokeincidence','strokeinc'],incDiabetes:['diabetes'],incLC:['lungcancerincidence','lcinc'],
-    incDementia:['dementia'],vsl:['vsl','statisticallife'],vsly:['vsly','lifeyear']
+    incDementia:['dementia'],vsly:['vsly','lifeyear','valueoflifeyear'],vsl:['vslusd','statisticallife','valueofstatistical']
   };
   headers.forEach((h,idx)=>{
     const n=norm(h);
@@ -922,13 +924,11 @@ function dl(content,name,type){
 }
 
 function downloadTemplate(){
-  const cols=FIELDS.map(f=>f.label);
-  const keys=FIELDS.map(f=>f.key);
-  const ex=['Example City',500000,1.0,320, 90,70,25,55,35, 800,600,400,300,700,90,150, 4500000,180000];
-  const ws=XLSX.utils.aoa_to_sheet([cols,ex]);
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'inputs');
-  XLSX.writeFile(wb,'climaqh_template.xlsx');
-  toast('Template downloaded');
+  const a=document.createElement('a');
+  a.href='climaqh_modelo.xlsx';
+  a.download='climaqh_modelo.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('Modelo baixado — preencha e faça upload');
 }
 
 /* ---------- DEMO ---------- */
