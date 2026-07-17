@@ -1099,6 +1099,17 @@ function estimateVSLY(vsl, years, r){
   return annuity>0 ? vsl/annuity : null;
 }
 
+/* Real published per-case morbidity unit costs (Brazil/SUS unless noted).
+   USD. lo/hi are the reported range or study spread. Each carries its source. */
+const MORB_COST_REF = {
+  costAsthma:  {lo:764,  hi:929,   src:'Asma grave, custo anual direto, Brasil (Syst. Review, PubMed 27116649)'},
+  costCOPD:    {lo:1887, hi:4322,  src:'DPOC, custo específico anual (EUA, MEPS 2017-18; ref. internacional)'},
+  costIHD:     {lo:1521, hi:1976,  src:'Doença isquêmica/infarto, SUS, Brasil (BMC Cardiovasc Disord 2017)'},
+  costStroke:  {lo:1902, hi:2637,  src:'AVC, hospitalização, SUS, Brasil (PubMed 19088487; PMC10867823)'},
+  costLC:      {lo:5647, hi:9572,  src:'Câncer de pulmão/oncologia, SUS, Brasil (BMC Health Serv 2018; VHRI 2020)'},
+  costDiabetes:{lo:1844, hi:2108,  src:'Diabetes tipo 2, custo anual/paciente, Brasil (PMC4232724; ScienceDirect 2011)'}
+};
+
 function calcEconomics(mort, morb){
   const i=S.inputs;
   const rows=[];
@@ -1459,8 +1470,22 @@ function pEcon(){
   const f=(k,l,h)=>`<label class="fld"><span class="lbl">${l} <span class="hint">${h}</span></span>
     <input type="number" step="any" min="0" value="${i[k]||''}" oninput="setIn('${k}',this.value)"></label>`;
   const morbCosts = S.scope==='full' ? `
+    <div class="card" style="border-left:3px solid var(--breath)">
+      <h3>Suggested morbidity costs <span class="unit">valores reais publicados · editável</span></h3>
+      <div class="sub">Custos por caso de estudos reais publicados (Brasil/SUS, salvo indicação). Clique para preencher, depois ajuste se quiser. Cada valor traz a fonte.</div>
+      <table class="tbl" style="margin-bottom:14px">
+        <thead><tr><th>Desfecho</th><th style="text-align:right">Baixo</th><th style="text-align:right">Alto</th><th>Fonte</th></tr></thead>
+        <tbody>
+        ${Object.entries(MORB_COST_REF).map(([k,v])=>`<tr>
+          <td>${({costAsthma:'Asma',costCOPD:'DPOC',costIHD:'Infarto (IHD)',costStroke:'AVC',costLC:'Câncer de pulmão',costDiabetes:'Diabetes tipo 2'})[k]}</td>
+          <td class="num">${usd(v.lo)}</td><td class="num">${usd(v.hi)}</td>
+          <td style="font-size:11.5px;color:var(--muted)">${v.src}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <button class="cta secondary" onclick="applySuggestedCosts()">Preencher com estes valores ↓</button>
+    </div>
     <div class="card">
-      <h3>Morbidity unit costs <span class="unit">USD per case · lower / upper</span></h3>
+      <h3>Morbidity unit costs <span class="unit">USD per case · lower / upper · valores finais</span></h3>
       <div class="sub">Cost of illness + productivity loss + welfare loss, per case. Fill only what matches the outcomes you entered.</div>
       <div class="grid three">
         ${f('costAsthma_lo','Asthma — low','USD')}${f('costAsthma_hi','Asthma — high','USD')}
@@ -1902,6 +1927,14 @@ function applySuggestedVSL(){
   if(v){ i.vsl=Math.round(v); }
   if(vy){ i.vsly=Math.round(vy); }
   toast('Valores sugeridos aplicados — você ainda pode editar');
+  render();
+}
+function applySuggestedCosts(){
+  const i=S.inputs;
+  Object.entries(MORB_COST_REF).forEach(([k,v])=>{
+    i[k+'_lo']=v.lo; i[k+'_hi']=v.hi;
+  });
+  toast('Custos publicados preenchidos — ajuste se necessário');
   render();
 }
 
