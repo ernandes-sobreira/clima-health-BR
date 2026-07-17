@@ -231,7 +231,22 @@ const app=document.getElementById('app');
 function render(){
   app.innerHTML = topbar() + hero() + stepper() + `<main class="wrap">${panels()}</main>` + footerHTML();
   bind();
-  if(S.results && S.step===4){ setTimeout(drawAllCharts, 40); }
+  if(S.results && S.step===4){ scheduleCharts(); }
+}
+
+// Robust chart trigger: wait for Chart.js, the canvas, and a laid-out width,
+// retrying across animation frames instead of a single fragile timeout.
+function scheduleCharts(attempt){
+  attempt = attempt||0;
+  const ready = typeof Chart!=='undefined'
+    && document.getElementById('c_cause')
+    && document.getElementById('c_cause').offsetWidth>0;
+  if(ready){
+    requestAnimationFrame(()=>{ try{ drawAllCharts(); }catch(e){ console.error('chart error',e); } });
+    return;
+  }
+  if(attempt<40){ requestAnimationFrame(()=>scheduleCharts(attempt+1)); }
+  else { setTimeout(()=>{ try{ drawAllCharts(); }catch(e){ console.error('chart error',e); } }, 300); }
 }
 
 function topbar(){
@@ -671,7 +686,15 @@ function mkGrad(ctx,area,c1,c2,horiz){
 function drawAllCharts(){
   Object.values(CHARTS).forEach(c=>c&&c.destroy()); CHARTS={};
   const r=S.results; if(!r)return;
-  drawCause(r.mort); drawCurve(r); if(r.morb&&r.morb.length)drawMorb(r.morb); if(r.econ&&r.econ.rows.length)drawEcon(r.econ);
+  const paint=()=>{
+    drawCause(r.mort); drawCurve(r);
+    if(r.morb&&r.morb.length)drawMorb(r.morb);
+    if(r.econ&&r.econ.rows.length)drawEcon(r.econ);
+  };
+  // Ensure web fonts are resolved so Chart.js doesn't paint into a blank/mismeasured canvas.
+  if(document.fonts && document.fonts.ready){
+    Promise.race([document.fonts.ready, new Promise(res=>setTimeout(res,1200))]).then(paint);
+  } else { paint(); }
 }
 
 function drawCause(m){
